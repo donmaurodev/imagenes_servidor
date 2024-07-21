@@ -27,6 +27,7 @@ class ImagePickerPage extends StatefulWidget {
 class ImagePickerPageState extends State<ImagePickerPage> {
   File? _image;
   final picker = ImagePicker();
+  bool _isUploading = false;
 
   Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await picker.pickImage(source: source);
@@ -40,27 +41,55 @@ class ImagePickerPageState extends State<ImagePickerPage> {
     });
   }
 
-  Future<void> _uploadImage() async {
+  Future<void> _uploadImage(BuildContext context) async {
     if (_image == null) return;
 
-    var request = http.MultipartRequest(
-      'POST',
-      Uri.parse(
-          'http://127.0.0.1/upload_image.php'), // Cambia la URL si es necesario
-    );
-    request.files.add(await http.MultipartFile.fromPath(
-      'image',
-      _image!.path,
-      filename: basename(_image!.path),
-    ));
+    setState(() {
+      _isUploading = true;
+    });
 
-    var response = await request.send();
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+            'http://192.168.0.103/imagenes-flutter/subir_imagenes.php'), // Cambia la URL si es necesario
+      );
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        _image!.path,
+        filename: basename(_image!.path),
+      ));
 
-    if (response.statusCode == 200) {
-      print('Image uploaded successfully');
-    } else {
-      print('Image upload failed with status: ${response.statusCode}');
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        print('Image uploaded successfully');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Image uploaded successfully'),
+        ));
+      } else {
+        print('Image upload failed with status: ${response.statusCode}');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text('Image upload failed with status: ${response.statusCode}'),
+        ));
+      }
+    } catch (e) {
+      print('Error uploading image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error uploading image: $e'),
+      ));
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
     }
+  }
+
+  void _clearImage() {
+    setState(() {
+      _image = null;
+    });
   }
 
   @override
@@ -73,7 +102,7 @@ class ImagePickerPageState extends State<ImagePickerPage> {
         ),
         backgroundColor: Colors.indigo,
       ),
-      body: Center(
+      body: SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
@@ -96,9 +125,22 @@ class ImagePickerPageState extends State<ImagePickerPage> {
               ],
             ),
             const SizedBox(height: 20),
+            _isUploading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: () => _uploadImage(context),
+                    child: const Text('Upload Image'),
+                  ),
+            const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: _uploadImage,
-              child: const Text('Enviar Imagen'),
+              onPressed: _clearImage,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text(
+                'Limpiar imagen',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
